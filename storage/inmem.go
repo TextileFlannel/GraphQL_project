@@ -37,7 +37,7 @@ func (s *inmemStorage) CreatePost(ctx context.Context, newPost model.NewPost) (*
 }
 
 func (s *inmemStorage) GetAllPosts(ctx context.Context, offset *int, limit *int) ([]*model.Post, error) {
-	off := 0
+	var off int
 	if offset != nil && *offset < len(s.posts) {
 		off = *offset
 	}
@@ -79,6 +79,8 @@ func (s *inmemStorage) CreateComment(ctx context.Context, newComment model.NewCo
 		if !s.posts[idx].Commentable {
 			return nil, ErrNotCommentable
 		}
+		parsed, _ := uuid.Parse(*newComment.PostID)
+		comm.PostID = &parsed
 		s.posts[idx].Comments = append(s.posts[idx].Comments, comm)
 	} else if newComment.CommentID != nil {
 		var wg sync.WaitGroup
@@ -104,6 +106,7 @@ func insertComment(comments []*model.Comment, newComment *model.Comment, parentI
 
 	for _, comment := range comments {
 		if comment.ID.String() == parentId {
+			newComment.PostID = comment.PostID
 			comment.Comments = append(comment.Comments, newComment)
 			return
 		} else {

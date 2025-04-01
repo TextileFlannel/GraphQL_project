@@ -6,7 +6,6 @@ package graph
 
 import (
 	"context"
-	"fmt"
 	"graphql_project/graph/model"
 )
 
@@ -35,6 +34,12 @@ func (r *mutationResolver) CreateComment(ctx context.Context, input model.NewCom
 	comment, err := r.Storage.CreateComment(ctx, input)
 	if err != nil {
 		return nil, err
+	}
+
+	for _, observer := range r.observers {
+		if comment.PostID.String() == observer.postID {
+			observer.ch <- comment
+		}
 	}
 
 	return comment, nil
@@ -79,7 +84,24 @@ func (r *queryResolver) Post(ctx context.Context, id string) (*model.Post, error
 
 // CommentAdded is the resolver for the commentAdded field.
 func (r *subscriptionResolver) CommentAdded(ctx context.Context, postID string) (<-chan *model.Comment, error) {
-	panic(fmt.Errorf("not implemented: CommentAdded - commentAdded"))
+	newObserver := observer{
+		ch: make(chan *model.Comment),
+		postID: postID,
+	}
+
+	r.mu.Lock()
+	r.observers = append(r.observers, newObserver)
+	r.mu.Unlock()
+
+	id := len(r.observers) - 1
+	go func() {
+		<-ctx.Done()
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		r.observers = append(r.observers[:id], r.observers[:id+1]...)
+	}()
+
+	return r.observers[id].ch, nil
 }
 
 func (r *Resolver) Comment() CommentResolver { return &commentResolver{r} }
