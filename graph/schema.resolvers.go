@@ -14,12 +14,12 @@ func (r *commentResolver) Comments(ctx context.Context, obj *model.Comment, offs
 		return obj.Comments, nil
 	}
 	off := 0
-	if offset != nil && *offset < len(obj.Comments) {
-		off = *offset
+	if offset != nil && int(*offset) < len(obj.Comments) {
+		off = int(*offset)
 	}
 	lim := len(obj.Comments)
-	if limit != nil && *limit <= len(obj.Comments) {
-		lim = *limit
+	if limit != nil && int(*limit) <= len(obj.Comments) {
+		lim = int(*limit)
 	}
 	return obj.Comments[off:lim], nil
 }
@@ -50,18 +50,18 @@ func (r *postResolver) Comments(ctx context.Context, obj *model.Post, offset *in
 		return obj.Comments, nil
 	}
 	off := 0
-	if offset != nil && *offset < len(obj.Comments) {
-		off = *offset
+	if offset != nil && int(*offset) < len(obj.Comments) {
+		off = int(*offset)
 	}
 	lim := len(obj.Comments)
-	if limit != nil && *limit <= len(obj.Comments) {
-		lim = *limit
+	if limit != nil && int(*limit) <= len(obj.Comments) {
+		lim = int(*limit)
 	}
 	return obj.Comments[off:lim], nil
 }
 
 // Posts is the resolver for the posts field.
-func (r *queryResolver) Posts(ctx context.Context, offset *int32, limit *int32) ([]*model.Post, error) {
+func (r *queryResolver) Posts(ctx context.Context, offset *int, limit *int) ([]*model.Post, error) {
 	var offsetInt *int
     if offset != nil {
         tmp := int(*offset)
