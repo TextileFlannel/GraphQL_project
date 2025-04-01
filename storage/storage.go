@@ -6,8 +6,8 @@ import (
 )
 
 type Storage interface {
-	CreatePost(ctx context.Context, post *model.Post) (*model.Post, error)
-	GetAllPosts(ctx context.Context, first int32, after *string) ([]*model.Post, bool, error)
+	CreatePost(ctx context.Context, newPost model.NewPost) (*model.Post, error)
+	GetAllPosts(ctx context.Context, offset *int, limit *int) ([]*model.Post, error)
 	GetPostByID(ctx context.Context, id string) (*model.Post, error)
-	ToggleComments(ctx context.Context, postID string, enabled bool) error
+	CreateComment(ctx context.Context, newComment model.NewComment) (*model.Comment, error)
 }

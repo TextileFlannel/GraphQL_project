@@ -10,77 +10,71 @@ import (
 	"graphql_project/graph/model"
 )
 
-// CreatePost is the resolver for the createPost field.
-func (r *mutationResolver) CreatePost(ctx context.Context, title string, content string, author string) (*model.Post, error) {
-	newPost := &model.Post{
-		Title:   title,
-		Content: content,
-		Author:  author,
+func (r *commentResolver) Comments(ctx context.Context, obj *model.Comment, offset *int, limit *int) ([]*model.Comment, error) {
+	if len(obj.Comments) == 0 {
+		return obj.Comments, nil
 	}
-	return r.Storage.CreatePost(ctx, newPost)
+	off := 0
+	if offset != nil && *offset < len(obj.Comments) {
+		off = *offset
+	}
+	lim := len(obj.Comments)
+	if limit != nil && *limit <= len(obj.Comments) {
+		lim = *limit
+	}
+	return obj.Comments[off:lim], nil
+}
+
+// CreatePost is the resolver for the createPost field.
+func (r *mutationResolver) CreatePost(ctx context.Context, input model.NewPost) (*model.Post, error) {
+	return r.Storage.CreatePost(ctx, input)
 }
 
 // CreateComment is the resolver for the createComment field.
-func (r *mutationResolver) CreateComment(ctx context.Context, postID string, content string, author string, parentID *string) (*model.Comment, error) {
-	panic(fmt.Errorf("not implemented: CreateComment - createComment"))
-}
-
-// ToggleComments is the resolver for the toggleComments field.
-func (r *mutationResolver) ToggleComments(ctx context.Context, postID string, author string, enabled bool) (*model.Post, error) {
-	post, err := r.Storage.GetPostByID(ctx, postID)
-    if err != nil {
-        return nil, fmt.Errorf("post not found")
-    }
-
-    if post.Author != author {
-        return nil, fmt.Errorf("only post author can modify comments settings")
-    }
-
-    err = r.Storage.ToggleComments(ctx, postID, enabled)
-    if err != nil {
-        return nil, fmt.Errorf("internal server error")
-    }
-
-    return r.Storage.GetPostByID(ctx, postID)
-}
-
-// Posts is the resolver for the posts field.
-func (r *queryResolver) Posts(ctx context.Context, first int32, after *string) (*model.PostsConnection, error) {
-	posts, hasNext, err := r.Storage.GetAllPosts(ctx, first, after)
+func (r *mutationResolver) CreateComment(ctx context.Context, input model.NewComment) (*model.Comment, error) {
+	comment, err := r.Storage.CreateComment(ctx, input)
 	if err != nil {
 		return nil, err
 	}
 
-	edges := make([]*model.PostEdge, len(posts))
-	for i, post := range posts {
-		edges[i] = &model.PostEdge{
-			Node:   post,
-			Cursor: post.ID,
-		}
-	}
+	return comment, nil
+}
 
-	var endCursor *string
-	if len(posts) > 0 {
-		endCursor = &posts[len(posts)-1].ID
+func (r *postResolver) Comments(ctx context.Context, obj *model.Post, offset *int, limit *int) ([]*model.Comment, error) {
+	if len(obj.Comments) == 0 {
+		return obj.Comments, nil
 	}
+	off := 0
+	if offset != nil && *offset < len(obj.Comments) {
+		off = *offset
+	}
+	lim := len(obj.Comments)
+	if limit != nil && *limit <= len(obj.Comments) {
+		lim = *limit
+	}
+	return obj.Comments[off:lim], nil
+}
 
-	return &model.PostsConnection{
-		Edges: edges,
-		PageInfo: &model.PageInfo{
-			HasNextPage: hasNext,
-			EndCursor:   endCursor,
-		},
-	}, nil
+// Posts is the resolver for the posts field.
+func (r *queryResolver) Posts(ctx context.Context, offset *int32, limit *int32) ([]*model.Post, error) {
+	var offsetInt *int
+    if offset != nil {
+        tmp := int(*offset)
+        offsetInt = &tmp
+    }
+
+    var limitInt *int
+    if limit != nil {
+        tmp := int(*limit)
+        limitInt = &tmp
+    }
+
+    return r.Storage.GetAllPosts(ctx, offsetInt, limitInt)
 }
 
 // Post is the resolver for the post field.
 func (r *queryResolver) Post(ctx context.Context, id string) (*model.Post, error) {
-	post, err := r.Storage.GetPostByID(ctx, id)
-    if err != nil {
-        return nil, fmt.Errorf("post not found")
-    }
-	
-    return post, nil
+	return r.Storage.GetPostByID(ctx, id)
 }
 
 // CommentAdded is the resolver for the commentAdded field.
@@ -88,6 +82,9 @@ func (r *subscriptionResolver) CommentAdded(ctx context.Context, postID string) 
 	panic(fmt.Errorf("not implemented: CommentAdded - commentAdded"))
 }
 
+func (r *Resolver) Comment() CommentResolver { return &commentResolver{r} }
+
+func (r *Resolver) Post() PostResolver { return &postResolver{r} }
 // Mutation returns MutationResolver implementation.
 func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 
@@ -97,6 +94,8 @@ func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 // Subscription returns SubscriptionResolver implementation.
 func (r *Resolver) Subscription() SubscriptionResolver { return &subscriptionResolver{r} }
 
+type commentResolver struct{ *Resolver }
+type postResolver struct{ *Resolver }
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type subscriptionResolver struct{ *Resolver }

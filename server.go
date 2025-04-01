@@ -22,8 +22,8 @@ func main() {
 	if port == "" {
 		port = defaultPort
 	}
+
 	store := storage.NewInMemStorage()
-	log.Println("Using in-memory storage")
 
 	resolver := graph.NewResolver(store)
 

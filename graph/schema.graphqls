@@ -1,65 +1,46 @@
-directive @constraint(maxLength: Int) on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
-
-schema {
-  query: Query
-  mutation: Mutation
-  subscription: Subscription
-}
-
-type Query {
-  posts(first: Int!, after: ID): PostsConnection!
-  post(id: ID!): Post
-}
-
-type Mutation {
-  createPost(title: String!, content: String!, author: String!): Post!
-  createComment(postId: ID!, content: String!, author: String!, parentId: ID): Comment!
-  toggleComments(postId: ID!, author: String!, enabled: Boolean!): Post!
-}
-
-type Subscription {
-  commentAdded(postId: ID!): Comment!
+type Comment {
+    id: UUID!
+    author: String!
+    content: String!
+	postId: UUID
+    comments(offset: Int = 0, limit: Int = 10): [Comment!]
 }
 
 type Post {
-  id: ID!
-  title: String!
-  content: String!
-  author: String!
-  commentsEnabled: Boolean!
-  comments(first: Int!, after: ID): CommentsConnection!
+    id: UUID!
+    title: String!
+    author: String!
+    content: String!
+    commentable: Boolean!
+    comments(offset: Int = 0, limit: Int = 10): [Comment!]
 }
 
-type Comment {
-  id: ID!
-  postId: ID!
-  parentId: ID
-  content: String! @constraint(maxLength: 2000)
-  author: String!
-  replies(first: Int!, after: ID): CommentsConnection!
+input NewPost {
+    title: String!
+    content: String!
+    commentable: Boolean!
+    author: String!
 }
 
-type PostsConnection {
-  edges: [PostEdge!]!
-  pageInfo: PageInfo!
+input NewComment {
+    content: String!
+    author: String!
+    commentId: String
+    postId: String
 }
 
-type PostEdge {
-  node: Post!
-  cursor: ID!
+type Mutation {
+    createPost(input: NewPost!): Post!
+    createComment(input: NewComment!): Comment!
 }
 
-type CommentsConnection {
-  edges: [CommentEdge!]!
-  pageInfo: PageInfo!
+type Query {
+    posts(offset: Int = 0, limit: Int = 10): [Post!]
+    post(id: String!): Post
 }
 
-type CommentEdge {
-  node: Comment!
-  cursor: ID!
+type Subscription {
+    commentAdded(postID: String!): Comment
 }
 
-type PageInfo {
-  hasNextPage: Boolean!
-  endCursor: ID
-}
+scalar UUID

@@ -3,93 +3,111 @@ package storage
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
+
 	"graphql_project/graph/model"
+	"github.com/google/uuid"
 )
-
-type InMemStorage struct {
-	posts     map[string]*model.Post
-	postsIDs  []string
-	mu        sync.RWMutex
-	postIDSeq int
-}
-
-func NewInMemStorage() *InMemStorage {
-	return &InMemStorage{
-		posts:    make(map[string]*model.Post),
-		postsIDs: make([]string, 0),
-	}
-}
-
-func (s *InMemStorage) CreatePost(ctx context.Context, post *model.Post) (*model.Post, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.postIDSeq++
-	post.ID = string(rune(s.postIDSeq))
-	post.CommentsEnabled = true
-
-	s.posts[post.ID] = post
-	s.postsIDs = append(s.postsIDs, post.ID)
-
-	return post, nil
-}
-
-func (s *InMemStorage) GetAllPosts(ctx context.Context, first int32, after *string) ([]*model.Post, bool, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	start := 0
-	if after != nil {
-		for i, id := range s.postsIDs {
-			if id == *after {
-				start = i + 1
-				break
-			}
-		}
-	}
-
-	end := start + int(first)
-	if end > len(s.postsIDs) {
-		end = len(s.postsIDs)
-	}
-
-	hasNext := end < len(s.postsIDs)
-	ids := s.postsIDs[start:end]
-	
-	posts := make([]*model.Post, 0, len(ids))
-	for _, id := range ids {
-		posts = append(posts, s.posts[id])
-	}
-
-	return posts, hasNext, nil
-}
-
-func (s *InMemStorage) GetPostByID(ctx context.Context, id string) (*model.Post, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	post, exists := s.posts[id]
-	if !exists {
-		return nil, ErrNotFound
-	}
-	return post, nil
-}
-
-func (s *InMemStorage) ToggleComments(ctx context.Context, postID string, enabled bool) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	post, exists := s.posts[postID]
-	if !exists {
-		return ErrNotFound
-	}
-
-	post.CommentsEnabled = enabled
-	return nil
-}
 
 var (
-	ErrNotFound = errors.New("not found")
-	ErrNotImplemented = errors.New("not implemented")
+	ErrNotCommentable = errors.New("the post is not commentable")
+	ErrNotFound       = errors.New("not found")
+	ErrBadRequest     = errors.New("bad request")
 )
+
+type inmemStorage struct {
+	posts []*model.Post
+}
+
+func NewInMemStorage() *inmemStorage {
+	return &inmemStorage{make([]*model.Post, 0)}
+}
+
+func (s *inmemStorage) CreatePost(ctx context.Context, newPost model.NewPost) (*model.Post, error) {
+	post := &model.Post{
+		ID:          uuid.New(),
+		Title:       newPost.Title,
+		Author:      newPost.Author,
+		Content:     newPost.Content,
+		Commentable: newPost.Commentable,
+	}
+	s.posts = append(s.posts, post)
+	return post, nil
+}
+
+func (s *inmemStorage) GetAllPosts(ctx context.Context, offset *int, limit *int) ([]*model.Post, error) {
+	off := 0
+	if offset != nil && *offset < len(s.posts) {
+		off = *offset
+	}
+	lim := len(s.posts)
+	if limit != nil && *limit <= len(s.posts) {
+		lim = *limit
+	}
+
+	if len(s.posts) == 0 {
+		return s.posts, nil
+	}
+	return s.posts[off:lim], nil
+}
+
+func (s *inmemStorage) GetPostByID(ctx context.Context, id string) (*model.Post, error) {
+	idx := slices.IndexFunc(s.posts, func(post *model.Post) bool {
+		return post.ID.String() == id
+	})
+	if idx == -1 {
+		return nil, ErrNotFound
+	}
+	return s.posts[idx], nil
+}
+
+func (s *inmemStorage) CreateComment(ctx context.Context, newComment model.NewComment) (*model.Comment, error) {
+	comm := &model.Comment{
+		ID:      uuid.New(),
+		Author:  newComment.Author,
+		Content: newComment.Content,
+	}
+
+	if newComment.PostID != nil {
+		idx := slices.IndexFunc(s.posts, func(post *model.Post) bool {
+			return post.ID.String() == *newComment.PostID
+		})
+		if idx == -1 {
+			return nil, ErrNotFound
+		}
+		if !s.posts[idx].Commentable {
+			return nil, ErrNotCommentable
+		}
+		s.posts[idx].Comments = append(s.posts[idx].Comments, comm)
+	} else if newComment.CommentID != nil {
+		var wg sync.WaitGroup
+		for _, post := range s.posts {
+			wg.Add(1)
+			go func(p *model.Post) {
+				defer wg.Done()
+				insertComment(p.Comments, comm, *newComment.CommentID)
+			}(post)
+		}
+		wg.Wait()
+	} else {
+		return nil, ErrBadRequest
+	}
+
+	return comm, nil
+}
+
+func insertComment(comments []*model.Comment, newComment *model.Comment, parentId string) {
+	if comments == nil {
+		return
+	}
+
+	for _, comment := range comments {
+		if comment.ID.String() == parentId {
+			comment.Comments = append(comment.Comments, newComment)
+			return
+		} else {
+			go insertComment(comment.Comments, newComment, parentId)
+		}
+	}
+}
