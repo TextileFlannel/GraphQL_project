@@ -79,7 +79,7 @@ func (r *queryResolver) Posts(ctx context.Context, offset *int, limit *int) ([]*
 
 // Post is the resolver for the post field.
 func (r *queryResolver) Post(ctx context.Context, id string) (*model.Post, error) {
-	return r.Service.GetPost(ctx, id)
+	return r.Service.GetPostByID(ctx, id)
 }
 
 // CommentAdded is the resolver for the commentAdded field.

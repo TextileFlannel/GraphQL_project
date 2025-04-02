@@ -32,7 +32,7 @@ func (s *Service) GetAllPosts(ctx context.Context, offset *int, limit *int) ([]*
 	return model, nil
 }
 
-func (s *Service) GetPost(ctx context.Context, id string) (*model.Post, error) {
+func (s *Service) GetPostByID(ctx context.Context, id string) (*model.Post, error) {
 	model, err := s.storage.GetPostByID(ctx, id)
 	if err != nil {
 		return nil, err
