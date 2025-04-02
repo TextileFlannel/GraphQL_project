@@ -2,6 +2,7 @@ package main
 
 import (
 	"graphql_project/graph"
+	"graphql_project/service"
 	"graphql_project/storage"
 	"log"
 	"net/http"
@@ -24,8 +25,9 @@ func main() {
 	}
 
 	store := storage.NewInMemStorage()
+	svc := service.NewService(store)
 
-	resolver := graph.NewResolver(store)
+	resolver := graph.NewResolver(svc)
 
 	srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
 

@@ -26,12 +26,12 @@ func (r *commentResolver) Comments(ctx context.Context, obj *model.Comment, offs
 
 // CreatePost is the resolver for the createPost field.
 func (r *mutationResolver) CreatePost(ctx context.Context, input model.NewPost) (*model.Post, error) {
-	return r.Storage.CreatePost(ctx, input)
+	return r.Service.CreatePost(ctx, input)
 }
 
 // CreateComment is the resolver for the createComment field.
 func (r *mutationResolver) CreateComment(ctx context.Context, input model.NewComment) (*model.Comment, error) {
-	comment, err := r.Storage.CreateComment(ctx, input)
+	comment, err := r.Service.CreateComment(ctx, input)
 	if err != nil {
 		return nil, err
 	}
@@ -63,29 +63,29 @@ func (r *postResolver) Comments(ctx context.Context, obj *model.Post, offset *in
 // Posts is the resolver for the posts field.
 func (r *queryResolver) Posts(ctx context.Context, offset *int, limit *int) ([]*model.Post, error) {
 	var offsetInt *int
-    if offset != nil {
-        tmp := int(*offset)
-        offsetInt = &tmp
-    }
+	if offset != nil {
+		tmp := int(*offset)
+		offsetInt = &tmp
+	}
 
-    var limitInt *int
-    if limit != nil {
-        tmp := int(*limit)
-        limitInt = &tmp
-    }
+	var limitInt *int
+	if limit != nil {
+		tmp := int(*limit)
+		limitInt = &tmp
+	}
 
-    return r.Storage.GetAllPosts(ctx, offsetInt, limitInt)
+	return r.Service.GetAllPosts(ctx, offsetInt, limitInt)
 }
 
 // Post is the resolver for the post field.
 func (r *queryResolver) Post(ctx context.Context, id string) (*model.Post, error) {
-	return r.Storage.GetPostByID(ctx, id)
+	return r.Service.GetPost(ctx, id)
 }
 
 // CommentAdded is the resolver for the commentAdded field.
 func (r *subscriptionResolver) CommentAdded(ctx context.Context, postID string) (<-chan *model.Comment, error) {
 	newObserver := observer{
-		ch: make(chan *model.Comment),
+		ch:     make(chan *model.Comment),
 		postID: postID,
 	}
 
@@ -107,6 +107,7 @@ func (r *subscriptionResolver) CommentAdded(ctx context.Context, postID string) 
 func (r *Resolver) Comment() CommentResolver { return &commentResolver{r} }
 
 func (r *Resolver) Post() PostResolver { return &postResolver{r} }
+
 // Mutation returns MutationResolver implementation.
 func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 

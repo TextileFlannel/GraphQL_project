@@ -2,24 +2,24 @@ package graph
 
 import (
 	"graphql_project/graph/model"
-	"graphql_project/storage"
+	"graphql_project/service"
 	"sync"
 )
 
 type observer struct {
-    ch  chan *model.Comment
-    postID string
+	ch     chan *model.Comment
+	postID string
 }
 
-type Resolver struct{
-	Storage storage.Storage
+type Resolver struct {
+	Service   *service.Service
 	observers []observer
-	mu sync.Mutex
+	mu        sync.Mutex
 }
 
-func NewResolver(storage storage.Storage) *Resolver {
+func NewResolver(serv *service.Service) *Resolver {
 	return &Resolver{
-		Storage: storage,
+		Service:   serv,
 		observers: make([]observer, 0),
 	}
 }
