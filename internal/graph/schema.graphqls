@@ -1,0 +1,46 @@
+type Comment {
+    id: UUID!
+    author: String!
+    content: String!
+	postId: UUID
+    comments(offset: Int = 0, limit: Int = 10): [Comment!]
+}
+
+type Post {
+    id: UUID!
+    title: String!
+    author: String!
+    content: String!
+    commentable: Boolean!
+    comments(offset: Int = 0, limit: Int = 10): [Comment!]
+}
+
+input NewPost {
+    title: String!
+    content: String!
+    commentable: Boolean!
+    author: String!
+}
+
+input NewComment {
+    content: String!
+    author: String!
+    commentId: String
+    postId: String
+}
+
+type Mutation {
+    createPost(input: NewPost!): Post!
+    createComment(input: NewComment!): Comment!
+}
+
+type Query {
+    posts(offset: Int = 0, limit: Int = 10): [Post!]
+    post(id: String!): Post
+}
+
+type Subscription {
+    commentAdded(postID: String!): Comment
+}
+
+scalar UUID
