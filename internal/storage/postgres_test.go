@@ -2,10 +2,10 @@ package storage
 
 import (
 	"context"
-	"time"
 	"database/sql"
 	"graphql_project/internal/graph/model"
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
@@ -80,44 +80,44 @@ func TestPostgresStorage_GetAllPosts(t *testing.T) {
 }
 
 func TestPostgresStorage_GetPostByID(t *testing.T) {
-    db, mock, err := sqlmock.New()
-    require.NoError(t, err)
-    defer db.Close()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
 
-    storage := &PostgresStorage{db: db}
-    ctx := context.Background()
+	storage := &PostgresStorage{db: db}
+	ctx := context.Background()
 
-    postID := uuid.New()
-    commentID := uuid.New()
-    nonExistentID := uuid.New().String()
+	postID := uuid.New()
+	commentID := uuid.New()
+	nonExistentID := uuid.New().String()
 
-    t.Run("existing post", func(t *testing.T) {
-        mock.ExpectQuery("SELECT id, title, author, content, commentable FROM posts WHERE id = \\$1").
-            WithArgs(postID.String()).
-            WillReturnRows(sqlmock.NewRows([]string{"id", "title", "author", "content", "commentable"}).
-                AddRow(postID, "Test Post", "Author", "Content", true))
+	t.Run("existing post", func(t *testing.T) {
+		mock.ExpectQuery("SELECT id, title, author, content, commentable FROM posts WHERE id = \\$1").
+			WithArgs(postID.String()).
+			WillReturnRows(sqlmock.NewRows([]string{"id", "title", "author", "content", "commentable"}).
+				AddRow(postID, "Test Post", "Author", "Content", true))
 
-        mock.ExpectQuery("SELECT id, post_id, parent_comment_id, author, content FROM comments WHERE post_id = \\$1").
-            WithArgs(postID).
-            WillReturnRows(sqlmock.NewRows([]string{"id", "post_id", "parent_comment_id", "author", "content"}).
-                AddRow(commentID, postID, nil, "User", "Comment"))
+		mock.ExpectQuery("SELECT id, post_id, parent_comment_id, author, content FROM comments WHERE post_id = \\$1").
+			WithArgs(postID).
+			WillReturnRows(sqlmock.NewRows([]string{"id", "post_id", "parent_comment_id", "author", "content"}).
+				AddRow(commentID, postID, nil, "User", "Comment"))
 
-        post, err := storage.GetPostByID(ctx, postID.String())
-        require.NoError(t, err)
-        assert.Equal(t, postID, post.ID)
-        assert.Len(t, post.Comments, 1)
-        assert.NoError(t, mock.ExpectationsWereMet())
-    })
+		post, err := storage.GetPostByID(ctx, postID.String())
+		require.NoError(t, err)
+		assert.Equal(t, postID, post.ID)
+		assert.Len(t, post.Comments, 1)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
 
-    t.Run("not found", func(t *testing.T) {
-        mock.ExpectQuery("SELECT id, title, author, content, commentable FROM posts WHERE id = \\$1").
-            WithArgs(nonExistentID).
-            WillReturnError(sql.ErrNoRows)
+	t.Run("not found", func(t *testing.T) {
+		mock.ExpectQuery("SELECT id, title, author, content, commentable FROM posts WHERE id = \\$1").
+			WithArgs(nonExistentID).
+			WillReturnError(sql.ErrNoRows)
 
-        _, err := storage.GetPostByID(ctx, nonExistentID)
-        assert.ErrorIs(t, err, ErrNotFound)
-        assert.NoError(t, mock.ExpectationsWereMet())
-    })
+		_, err := storage.GetPostByID(ctx, nonExistentID)
+		assert.ErrorIs(t, err, ErrNotFound)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
 }
 
 func TestPostgresStorage_CreateComment(t *testing.T) {
@@ -165,9 +165,9 @@ func TestPostgresStorage_CreateComment(t *testing.T) {
 		mock.ExpectCommit()
 
 		_, err := storage.CreateComment(ctx, model.NewComment{
-			Author:     "Author",
-			Content:    "Content",
-			CommentID:  ptr(commentID.String()),
+			Author:    "Author",
+			Content:   "Content",
+			CommentID: ptr(commentID.String()),
 		})
 		assert.NoError(t, err)
 		assert.NoError(t, mock.ExpectationsWereMet())

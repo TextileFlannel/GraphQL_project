@@ -2,10 +2,10 @@ package service
 
 import (
 	"context"
-	"time"
 	"graphql_project/internal/graph/model"
 	"graphql_project/internal/storage"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -63,7 +63,7 @@ func TestService_CreatePost(t *testing.T) {
 			Once()
 
 		result, err := service.CreatePost(ctx, newPost)
-		
+
 		require.NoError(t, err)
 		assert.Equal(t, expectedPost, result)
 		mockStorage.AssertExpectations(t)
@@ -75,7 +75,7 @@ func TestService_CreatePost(t *testing.T) {
 			Once()
 
 		_, err := service.CreatePost(ctx, newPost)
-		
+
 		assert.ErrorIs(t, err, storage.ErrNotFound)
 		mockStorage.AssertExpectations(t)
 	})
@@ -97,7 +97,7 @@ func TestService_GetAllPosts(t *testing.T) {
 			Once()
 
 		result, err := service.GetAllPosts(ctx, nil, nil)
-		
+
 		require.NoError(t, err)
 		assert.Equal(t, posts, result)
 		mockStorage.AssertExpectations(t)
@@ -111,7 +111,7 @@ func TestService_GetAllPosts(t *testing.T) {
 			Once()
 
 		result, err := service.GetAllPosts(ctx, &offset, &limit)
-		
+
 		require.NoError(t, err)
 		assert.Equal(t, posts, result)
 		mockStorage.AssertExpectations(t)
@@ -123,7 +123,7 @@ func TestService_GetAllPosts(t *testing.T) {
 			Once()
 
 		_, err := service.GetAllPosts(ctx, nil, nil)
-		
+
 		assert.ErrorIs(t, err, storage.ErrNotFound)
 		mockStorage.AssertExpectations(t)
 	})
@@ -143,7 +143,7 @@ func TestService_GetPostByID(t *testing.T) {
 			Once()
 
 		result, err := service.GetPostByID(ctx, postID)
-		
+
 		require.NoError(t, err)
 		assert.Equal(t, post, result)
 		mockStorage.AssertExpectations(t)
@@ -155,7 +155,7 @@ func TestService_GetPostByID(t *testing.T) {
 			Once()
 
 		_, err := service.GetPostByID(ctx, postID)
-		
+
 		assert.ErrorIs(t, err, storage.ErrNotFound)
 		mockStorage.AssertExpectations(t)
 	})
@@ -188,7 +188,7 @@ func TestService_CreateComment(t *testing.T) {
 			Once()
 
 		result, err := service.CreateComment(ctx, newComment)
-		
+
 		require.NoError(t, err)
 		assert.Equal(t, expectedComment, result)
 		mockStorage.AssertExpectations(t)
@@ -197,9 +197,9 @@ func TestService_CreateComment(t *testing.T) {
 	t.Run("success to comment", func(t *testing.T) {
 		commentID := uuid.New().String()
 		newComment := model.NewComment{
-			Author:     "User",
-			Content:    "Reply",
-			CommentID:  &commentID,
+			Author:    "User",
+			Content:   "Reply",
+			CommentID: &commentID,
 		}
 
 		mockStorage.On("CreateComment", ctx, newComment).
@@ -207,7 +207,7 @@ func TestService_CreateComment(t *testing.T) {
 			Once()
 
 		result, err := service.CreateComment(ctx, newComment)
-		
+
 		require.NoError(t, err)
 		assert.Equal(t, expectedComment, result)
 		mockStorage.AssertExpectations(t)
@@ -219,7 +219,7 @@ func TestService_CreateComment(t *testing.T) {
 			Once()
 
 		_, err := service.CreateComment(ctx, newComment)
-		
+
 		assert.ErrorIs(t, err, storage.ErrNotCommentable)
 		mockStorage.AssertExpectations(t)
 	})
@@ -235,7 +235,7 @@ func TestService_CreateComment(t *testing.T) {
 			Once()
 
 		_, err := service.CreateComment(ctx, invalidComment)
-		
+
 		assert.ErrorIs(t, err, storage.ErrBadRequest)
 		mockStorage.AssertExpectations(t)
 	})

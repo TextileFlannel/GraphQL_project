@@ -2,12 +2,12 @@ package storage
 
 import (
 	"context"
-	"strings"
 	"database/sql"
 	"fmt"
 	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 	"graphql_project/internal/graph/model"
+	"strings"
 )
 
 type PostgresStorage struct {
@@ -83,80 +83,80 @@ func (s *PostgresStorage) GetAllPosts(ctx context.Context, offset *int, limit *i
 	}
 
 	if err := rows.Err(); err != nil {
-        return nil, err
-    }
+		return nil, err
+	}
 
-    if len(posts) == 0 {
-        return posts, nil
-    }
+	if len(posts) == 0 {
+		return posts, nil
+	}
 
-    postIDs := make([]uuid.UUID, len(posts))
-    for i, post := range posts {
-        postIDs[i] = post.ID
-    }
+	postIDs := make([]uuid.UUID, len(posts))
+	for i, post := range posts {
+		postIDs[i] = post.ID
+	}
 
-    commentsQuery := fmt.Sprintf(
-        "SELECT id, post_id, parent_comment_id, author, content FROM comments WHERE post_id IN (%s)",
-        placeholders(len(postIDs)),
-    )
-    args = make([]interface{}, len(postIDs))
-    for i, id := range postIDs {
-        args[i] = id
-    }
+	commentsQuery := fmt.Sprintf(
+		"SELECT id, post_id, parent_comment_id, author, content FROM comments WHERE post_id IN (%s)",
+		placeholders(len(postIDs)),
+	)
+	args = make([]interface{}, len(postIDs))
+	for i, id := range postIDs {
+		args[i] = id
+	}
 
-    rows, err = s.db.QueryContext(ctx, commentsQuery, args...)
-    if err != nil {
-        return nil, fmt.Errorf("failed to fetch comments: %v", err)
-    }
-    defer rows.Close()
+	rows, err = s.db.QueryContext(ctx, commentsQuery, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch comments: %v", err)
+	}
+	defer rows.Close()
 
-    var tempComments []model.TempComment
-    for rows.Next() {
-        var c model.TempComment
-        if err := rows.Scan(&c.ID, &c.PostID, &c.ParentCommentID, &c.Author, &c.Content); err != nil {
-            return nil, fmt.Errorf("scanning comment: %v", err)
-        }
-        tempComments = append(tempComments, c)
-    }
-    if err := rows.Err(); err != nil {
-        return nil, fmt.Errorf("after scanning comments: %v", err)
-    }
+	var tempComments []model.TempComment
+	for rows.Next() {
+		var c model.TempComment
+		if err := rows.Scan(&c.ID, &c.PostID, &c.ParentCommentID, &c.Author, &c.Content); err != nil {
+			return nil, fmt.Errorf("scanning comment: %v", err)
+		}
+		tempComments = append(tempComments, c)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("after scanning comments: %v", err)
+	}
 
-    commentMap := make(map[uuid.UUID]*model.Comment)
-    commentsByPostID := make(map[uuid.UUID][]*model.Comment)
+	commentMap := make(map[uuid.UUID]*model.Comment)
+	commentsByPostID := make(map[uuid.UUID][]*model.Comment)
 
-    for _, tc := range tempComments {
-        comment := &model.Comment{
-            ID:       tc.ID,
-            Author:   tc.Author,
-            Content:  tc.Content,
-            PostID:   &tc.PostID,
-            Comments: []*model.Comment{},
-        }
-        commentMap[tc.ID] = comment
-    }
+	for _, tc := range tempComments {
+		comment := &model.Comment{
+			ID:       tc.ID,
+			Author:   tc.Author,
+			Content:  tc.Content,
+			PostID:   &tc.PostID,
+			Comments: []*model.Comment{},
+		}
+		commentMap[tc.ID] = comment
+	}
 
-    for _, tc := range tempComments {
-        comment := commentMap[tc.ID]
-        if tc.ParentCommentID != nil {
-            parent, exists := commentMap[*tc.ParentCommentID]
-            if exists {
-                parent.Comments = append(parent.Comments, comment)
-            }
-        } else {
-            commentsByPostID[tc.PostID] = append(commentsByPostID[tc.PostID], comment)
-        }
-    }
+	for _, tc := range tempComments {
+		comment := commentMap[tc.ID]
+		if tc.ParentCommentID != nil {
+			parent, exists := commentMap[*tc.ParentCommentID]
+			if exists {
+				parent.Comments = append(parent.Comments, comment)
+			}
+		} else {
+			commentsByPostID[tc.PostID] = append(commentsByPostID[tc.PostID], comment)
+		}
+	}
 
-    for _, post := range posts {
-        if comments, ok := commentsByPostID[post.ID]; ok {
-            post.Comments = comments
-        } else {
-            post.Comments = []*model.Comment{}
-        }
-    }
+	for _, post := range posts {
+		if comments, ok := commentsByPostID[post.ID]; ok {
+			post.Comments = comments
+		} else {
+			post.Comments = []*model.Comment{}
+		}
+	}
 
-    return posts, nil
+	return posts, nil
 }
 
 func (s *PostgresStorage) GetPostByID(ctx context.Context, id string) (*model.Post, error) {
@@ -180,160 +180,160 @@ func (s *PostgresStorage) GetPostByID(ctx context.Context, id string) (*model.Po
 	}
 
 	rows, err := s.db.QueryContext(ctx,
-        "SELECT id, post_id, parent_comment_id, author, content FROM comments WHERE post_id = $1",
-        post.ID,
-    )
-    if err != nil {
-        return nil, fmt.Errorf("failed to fetch comments: %v", err)
-    }
-    defer rows.Close()
+		"SELECT id, post_id, parent_comment_id, author, content FROM comments WHERE post_id = $1",
+		post.ID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch comments: %v", err)
+	}
+	defer rows.Close()
 
-    var tempComments []model.TempComment
-    for rows.Next() {
-        var c model.TempComment
-        if err := rows.Scan(&c.ID, &c.PostID, &c.ParentCommentID, &c.Author, &c.Content); err != nil {
-            return nil, fmt.Errorf("scanning comment: %v", err)
-        }
-        tempComments = append(tempComments, c)
-    }
-    if err := rows.Err(); err != nil {
-        return nil, fmt.Errorf("after scanning comments: %v", err)
-    }
+	var tempComments []model.TempComment
+	for rows.Next() {
+		var c model.TempComment
+		if err := rows.Scan(&c.ID, &c.PostID, &c.ParentCommentID, &c.Author, &c.Content); err != nil {
+			return nil, fmt.Errorf("scanning comment: %v", err)
+		}
+		tempComments = append(tempComments, c)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("after scanning comments: %v", err)
+	}
 
-    commentMap := make(map[uuid.UUID]*model.Comment)
-    commentsByPostID := make(map[uuid.UUID][]*model.Comment)
+	commentMap := make(map[uuid.UUID]*model.Comment)
+	commentsByPostID := make(map[uuid.UUID][]*model.Comment)
 
-    for _, tc := range tempComments {
-        comment := &model.Comment{
-            ID:       tc.ID,
-            Author:   tc.Author,
-            Content:  tc.Content,
-            PostID:   &tc.PostID,
-            Comments: []*model.Comment{},
-        }
-        commentMap[tc.ID] = comment
-    }
+	for _, tc := range tempComments {
+		comment := &model.Comment{
+			ID:       tc.ID,
+			Author:   tc.Author,
+			Content:  tc.Content,
+			PostID:   &tc.PostID,
+			Comments: []*model.Comment{},
+		}
+		commentMap[tc.ID] = comment
+	}
 
-    for _, tc := range tempComments {
-        comment := commentMap[tc.ID]
-        if tc.ParentCommentID != nil {
-            parent, exists := commentMap[*tc.ParentCommentID]
-            if exists {
-                parent.Comments = append(parent.Comments, comment)
-            }
-        } else {
-            commentsByPostID[tc.PostID] = append(commentsByPostID[tc.PostID], comment)
-        }
-    }
+	for _, tc := range tempComments {
+		comment := commentMap[tc.ID]
+		if tc.ParentCommentID != nil {
+			parent, exists := commentMap[*tc.ParentCommentID]
+			if exists {
+				parent.Comments = append(parent.Comments, comment)
+			}
+		} else {
+			commentsByPostID[tc.PostID] = append(commentsByPostID[tc.PostID], comment)
+		}
+	}
 
-    if comments, ok := commentsByPostID[post.ID]; ok {
-        post.Comments = comments
-    } else {
-        post.Comments = []*model.Comment{}
-    }
+	if comments, ok := commentsByPostID[post.ID]; ok {
+		post.Comments = comments
+	} else {
+		post.Comments = []*model.Comment{}
+	}
 
-    return &post, nil
+	return &post, nil
 }
 
 func (s *PostgresStorage) CreateComment(ctx context.Context, newComment model.NewComment) (*model.Comment, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
-    if err != nil {
-        return nil, err
-    }
-    defer tx.Rollback()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
 
-    comment := &model.Comment{
-        ID:      uuid.New(),
-        Author:  newComment.Author,
-        Content: newComment.Content,
-    }
+	comment := &model.Comment{
+		ID:      uuid.New(),
+		Author:  newComment.Author,
+		Content: newComment.Content,
+	}
 
-    switch {
-    case newComment.PostID != nil:
-        postID, err := uuid.Parse(*newComment.PostID)
-        if err != nil {
-            return nil, ErrBadRequest
-        }
+	switch {
+	case newComment.PostID != nil:
+		postID, err := uuid.Parse(*newComment.PostID)
+		if err != nil {
+			return nil, ErrBadRequest
+		}
 
-        var commentable bool
-        err = tx.QueryRowContext(ctx,
-            "SELECT commentable FROM posts WHERE id = $1", 
-            postID,
-        ).Scan(&commentable)
-        
-        if err == sql.ErrNoRows {
-            return nil, ErrNotFound
-        }
-        if err != nil {
-            return nil, err
-        }
-        if !commentable {
-            return nil, ErrNotCommentable
-        }
+		var commentable bool
+		err = tx.QueryRowContext(ctx,
+			"SELECT commentable FROM posts WHERE id = $1",
+			postID,
+		).Scan(&commentable)
 
-        _, err = tx.ExecContext(ctx,
-            "INSERT INTO comments (id, post_id, author, content) VALUES ($1, $2, $3, $4)",
-            comment.ID, postID, comment.Author, comment.Content,
-        )
-        if err != nil {
-            return nil, err
-        }
+		if err == sql.ErrNoRows {
+			return nil, ErrNotFound
+		}
+		if err != nil {
+			return nil, err
+		}
+		if !commentable {
+			return nil, ErrNotCommentable
+		}
 
-    case newComment.CommentID != nil:
-        parentID, err := uuid.Parse(*newComment.CommentID)
-        if err != nil {
-            return nil, ErrBadRequest
-        }
+		_, err = tx.ExecContext(ctx,
+			"INSERT INTO comments (id, post_id, author, content) VALUES ($1, $2, $3, $4)",
+			comment.ID, postID, comment.Author, comment.Content,
+		)
+		if err != nil {
+			return nil, err
+		}
 
-        var postID uuid.UUID
-        err = tx.QueryRowContext(ctx,
-            "SELECT post_id FROM comments WHERE id = $1",
-            parentID,
-        ).Scan(&postID)
-        
-        if err == sql.ErrNoRows {
-            return nil, ErrNotFound
-        }
-        if err != nil {
-            return nil, err
-        }
+	case newComment.CommentID != nil:
+		parentID, err := uuid.Parse(*newComment.CommentID)
+		if err != nil {
+			return nil, ErrBadRequest
+		}
 
-        var commentable bool
-        err = tx.QueryRowContext(ctx,
-            "SELECT commentable FROM posts WHERE id = $1",
-            postID,
-        ).Scan(&commentable)
-        
-        if err != nil {
-            return nil, err
-        }
-        if !commentable {
-            return nil, ErrNotCommentable
-        }
+		var postID uuid.UUID
+		err = tx.QueryRowContext(ctx,
+			"SELECT post_id FROM comments WHERE id = $1",
+			parentID,
+		).Scan(&postID)
 
-        _, err = tx.ExecContext(ctx,
-            "INSERT INTO comments (id, post_id, parent_comment_id, author, content) VALUES ($1, $2, $3, $4, $5)",
-            comment.ID, postID, parentID, comment.Author, comment.Content,
-        )
-        if err != nil {
-            return nil, err
-        }
+		if err == sql.ErrNoRows {
+			return nil, ErrNotFound
+		}
+		if err != nil {
+			return nil, err
+		}
 
-    default:
-        return nil, ErrBadRequest
-    }
+		var commentable bool
+		err = tx.QueryRowContext(ctx,
+			"SELECT commentable FROM posts WHERE id = $1",
+			postID,
+		).Scan(&commentable)
 
-    if err := tx.Commit(); err != nil {
-        return nil, err
-    }
+		if err != nil {
+			return nil, err
+		}
+		if !commentable {
+			return nil, ErrNotCommentable
+		}
 
-    return comment, nil
+		_, err = tx.ExecContext(ctx,
+			"INSERT INTO comments (id, post_id, parent_comment_id, author, content) VALUES ($1, $2, $3, $4, $5)",
+			comment.ID, postID, parentID, comment.Author, comment.Content,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+	default:
+		return nil, ErrBadRequest
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	return comment, nil
 }
 
 func placeholders(n int) string {
-    parts := make([]string, n)
-    for i := 0; i < n; i++ {
-        parts[i] = fmt.Sprintf("$%d", i+1)
-    }
-    return strings.Join(parts, ", ")
+	parts := make([]string, n)
+	for i := 0; i < n; i++ {
+		parts[i] = fmt.Sprintf("$%d", i+1)
+	}
+	return strings.Join(parts, ", ")
 }

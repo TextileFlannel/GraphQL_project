@@ -1,20 +1,20 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
-	"os"
-	"context"
-	"time"
 	"graphql_project/internal/config"
-	"graphql_project/migrations"
 	"graphql_project/internal/graph"
 	"graphql_project/internal/service"
 	"graphql_project/internal/storage"
+	"graphql_project/migrations"
 	"log"
 	"net/http"
+	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/handler/extension"
@@ -40,7 +40,7 @@ func main() {
 	var storageType string
 	flag.StringVar(&storageType, "storage", cfg.StorageType, "storage type (inmem|postgres)")
 	flag.Parse()
-	
+
 	// Инициализация хранилища
 	var store storage.Storage
 	switch storageType {
@@ -91,7 +91,7 @@ func main() {
 	http.Handle("/query", srv)
 
 	server := &http.Server{
-		Addr:    ":" + cfg.HTTPPort,
+		Addr: ":" + cfg.HTTPPort,
 	}
 
 	serverErrors := make(chan error, 1)

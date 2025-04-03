@@ -78,7 +78,6 @@ func TestGetPostByID(t *testing.T) {
 	})
 }
 
-
 func TestCreateComment(t *testing.T) {
 	s := NewInMemStorage()
 	ctx := context.Background()
@@ -106,7 +105,7 @@ func TestCreateComment(t *testing.T) {
 
 	postFromStorage, err := s.GetPostByID(ctx, post.ID.String())
 	require.NoError(t, err)
-	
+
 	if assert.Len(t, postFromStorage.Comments, 1) {
 		assert.Equal(t, comment.ID, postFromStorage.Comments[0].ID)
 		assert.Equal(t, "Test Comment", postFromStorage.Comments[0].Content)

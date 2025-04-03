@@ -6,8 +6,8 @@ import (
 	"slices"
 	"sync"
 
-	"graphql_project/internal/graph/model"
 	"github.com/google/uuid"
+	"graphql_project/internal/graph/model"
 )
 
 var (
