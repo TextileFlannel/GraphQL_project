@@ -75,7 +75,7 @@ make docker-compose-down
 make build
 ```
 
-## In Memmory:
+## In Memory:
 
 ```
 make run
