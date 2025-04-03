@@ -110,17 +110,9 @@ func (s *PostgresStorage) GetAllPosts(ctx context.Context, offset *int, limit *i
     }
     defer rows.Close()
 
-    type tempComment struct {
-        ID              uuid.UUID
-        PostID          uuid.UUID
-        ParentCommentID *uuid.UUID
-        Author          string
-        Content         string
-    }
-
-    var tempComments []tempComment
+    var tempComments []model.TempComment
     for rows.Next() {
-        var c tempComment
+        var c model.TempComment
         if err := rows.Scan(&c.ID, &c.PostID, &c.ParentCommentID, &c.Author, &c.Content); err != nil {
             return nil, fmt.Errorf("scanning comment: %v", err)
         }
@@ -196,17 +188,9 @@ func (s *PostgresStorage) GetPostByID(ctx context.Context, id string) (*model.Po
     }
     defer rows.Close()
 
-    type tempComment struct {
-        ID              uuid.UUID
-        PostID          uuid.UUID
-        ParentCommentID *uuid.UUID
-        Author          string
-        Content         string
-    }
-
-    var tempComments []tempComment
+    var tempComments []model.TempComment
     for rows.Next() {
-        var c tempComment
+        var c model.TempComment
         if err := rows.Scan(&c.ID, &c.PostID, &c.ParentCommentID, &c.Author, &c.Content); err != nil {
             return nil, fmt.Errorf("scanning comment: %v", err)
         }
