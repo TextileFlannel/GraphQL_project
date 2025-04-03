@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"strings"
 	"database/sql"
 	"fmt"
 	"github.com/google/uuid"
@@ -77,10 +78,93 @@ func (s *PostgresStorage) GetAllPosts(ctx context.Context, offset *int, limit *i
 		); err != nil {
 			return nil, err
 		}
+		post.Comments = []*model.Comment{}
 		posts = append(posts, &post)
 	}
 
-	return posts, nil
+	if err := rows.Err(); err != nil {
+        return nil, err
+    }
+
+    if len(posts) == 0 {
+        return posts, nil
+    }
+
+    postIDs := make([]uuid.UUID, len(posts))
+    for i, post := range posts {
+        postIDs[i] = post.ID
+    }
+
+    commentsQuery := fmt.Sprintf(
+        "SELECT id, post_id, parent_comment_id, author, content FROM comments WHERE post_id IN (%s)",
+        placeholders(len(postIDs)),
+    )
+    args = make([]interface{}, len(postIDs))
+    for i, id := range postIDs {
+        args[i] = id
+    }
+
+    rows, err = s.db.QueryContext(ctx, commentsQuery, args...)
+    if err != nil {
+        return nil, fmt.Errorf("failed to fetch comments: %v", err)
+    }
+    defer rows.Close()
+
+    type tempComment struct {
+        ID              uuid.UUID
+        PostID          uuid.UUID
+        ParentCommentID *uuid.UUID
+        Author          string
+        Content         string
+    }
+
+    var tempComments []tempComment
+    for rows.Next() {
+        var c tempComment
+        if err := rows.Scan(&c.ID, &c.PostID, &c.ParentCommentID, &c.Author, &c.Content); err != nil {
+            return nil, fmt.Errorf("scanning comment: %v", err)
+        }
+        tempComments = append(tempComments, c)
+    }
+    if err := rows.Err(); err != nil {
+        return nil, fmt.Errorf("after scanning comments: %v", err)
+    }
+
+    commentMap := make(map[uuid.UUID]*model.Comment)
+    commentsByPostID := make(map[uuid.UUID][]*model.Comment)
+
+    for _, tc := range tempComments {
+        comment := &model.Comment{
+            ID:       tc.ID,
+            Author:   tc.Author,
+            Content:  tc.Content,
+            PostID:   &tc.PostID,
+            Comments: []*model.Comment{},
+        }
+        commentMap[tc.ID] = comment
+    }
+
+    for _, tc := range tempComments {
+        comment := commentMap[tc.ID]
+        if tc.ParentCommentID != nil {
+            parent, exists := commentMap[*tc.ParentCommentID]
+            if exists {
+                parent.Comments = append(parent.Comments, comment)
+            }
+        } else {
+            commentsByPostID[tc.PostID] = append(commentsByPostID[tc.PostID], comment)
+        }
+    }
+
+    for _, post := range posts {
+        if comments, ok := commentsByPostID[post.ID]; ok {
+            post.Comments = comments
+        } else {
+            post.Comments = []*model.Comment{}
+        }
+    }
+
+    return posts, nil
 }
 
 func (s *PostgresStorage) GetPostByID(ctx context.Context, id string) (*model.Post, error) {
@@ -103,7 +187,68 @@ func (s *PostgresStorage) GetPostByID(ctx context.Context, id string) (*model.Po
 		return nil, err
 	}
 
-	return &post, nil
+	rows, err := s.db.QueryContext(ctx,
+        "SELECT id, post_id, parent_comment_id, author, content FROM comments WHERE post_id = $1",
+        post.ID,
+    )
+    if err != nil {
+        return nil, fmt.Errorf("failed to fetch comments: %v", err)
+    }
+    defer rows.Close()
+
+    type tempComment struct {
+        ID              uuid.UUID
+        PostID          uuid.UUID
+        ParentCommentID *uuid.UUID
+        Author          string
+        Content         string
+    }
+
+    var tempComments []tempComment
+    for rows.Next() {
+        var c tempComment
+        if err := rows.Scan(&c.ID, &c.PostID, &c.ParentCommentID, &c.Author, &c.Content); err != nil {
+            return nil, fmt.Errorf("scanning comment: %v", err)
+        }
+        tempComments = append(tempComments, c)
+    }
+    if err := rows.Err(); err != nil {
+        return nil, fmt.Errorf("after scanning comments: %v", err)
+    }
+
+    commentMap := make(map[uuid.UUID]*model.Comment)
+    commentsByPostID := make(map[uuid.UUID][]*model.Comment)
+
+    for _, tc := range tempComments {
+        comment := &model.Comment{
+            ID:       tc.ID,
+            Author:   tc.Author,
+            Content:  tc.Content,
+            PostID:   &tc.PostID,
+            Comments: []*model.Comment{},
+        }
+        commentMap[tc.ID] = comment
+    }
+
+    for _, tc := range tempComments {
+        comment := commentMap[tc.ID]
+        if tc.ParentCommentID != nil {
+            parent, exists := commentMap[*tc.ParentCommentID]
+            if exists {
+                parent.Comments = append(parent.Comments, comment)
+            }
+        } else {
+            commentsByPostID[tc.PostID] = append(commentsByPostID[tc.PostID], comment)
+        }
+    }
+
+    if comments, ok := commentsByPostID[post.ID]; ok {
+        post.Comments = comments
+    } else {
+        post.Comments = []*model.Comment{}
+    }
+
+    return &post, nil
 }
 
 func (s *PostgresStorage) CreateComment(ctx context.Context, newComment model.NewComment) (*model.Comment, error) {
@@ -199,4 +344,12 @@ func (s *PostgresStorage) CreateComment(ctx context.Context, newComment model.Ne
     }
 
     return comment, nil
+}
+
+func placeholders(n int) string {
+    parts := make([]string, n)
+    for i := 0; i < n; i++ {
+        parts[i] = fmt.Sprintf("$%d", i+1)
+    }
+    return strings.Join(parts, ", ")
 }
