@@ -278,6 +278,8 @@ func (s *PostgresStorage) CreateComment(ctx context.Context, newComment model.Ne
 		if err != nil {
 			return nil, err
 		}
+		parsed, _ := uuid.Parse(*newComment.PostID)
+		comment.PostID = &(parsed)
 
 	case newComment.CommentID != nil:
 		parentID, err := uuid.Parse(*newComment.CommentID)
@@ -290,6 +292,7 @@ func (s *PostgresStorage) CreateComment(ctx context.Context, newComment model.Ne
 			"SELECT post_id FROM comments WHERE id = $1",
 			parentID,
 		).Scan(&postID)
+		comment.PostID = &postID
 
 		if err == sql.ErrNoRows {
 			return nil, ErrNotFound
