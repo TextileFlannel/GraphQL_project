@@ -18,10 +18,11 @@ var (
 
 type inmemStorage struct {
 	posts []*model.Post
+	mu sync.RWMutex
 }
 
 func NewInMemStorage() *inmemStorage {
-	return &inmemStorage{make([]*model.Post, 0)}
+	return &inmemStorage{posts: make([]*model.Post, 0)}
 }
 
 func (s *inmemStorage) CreatePost(ctx context.Context, newPost model.NewPost) (*model.Post, error) {
@@ -32,11 +33,17 @@ func (s *inmemStorage) CreatePost(ctx context.Context, newPost model.NewPost) (*
 		Content:     newPost.Content,
 		Commentable: newPost.Commentable,
 	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.posts = append(s.posts, post)
 	return post, nil
 }
 
 func (s *inmemStorage) GetAllPosts(ctx context.Context, offset *int, limit *int) ([]*model.Post, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	var off int
 	if offset != nil && *offset < len(s.posts) {
 		off = *offset
@@ -53,6 +60,9 @@ func (s *inmemStorage) GetAllPosts(ctx context.Context, offset *int, limit *int)
 }
 
 func (s *inmemStorage) GetPostByID(ctx context.Context, id string) (*model.Post, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	
 	idx := slices.IndexFunc(s.posts, func(post *model.Post) bool {
 		return post.ID.String() == id
 	})
@@ -70,6 +80,9 @@ func (s *inmemStorage) CreateComment(ctx context.Context, newComment model.NewCo
 	}
 
 	if newComment.PostID != nil {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+
 		idx := slices.IndexFunc(s.posts, func(post *model.Post) bool {
 			return post.ID.String() == *newComment.PostID
 		})
@@ -83,15 +96,16 @@ func (s *inmemStorage) CreateComment(ctx context.Context, newComment model.NewCo
 		comm.PostID = &parsed
 		s.posts[idx].Comments = append(s.posts[idx].Comments, comm)
 	} else if newComment.CommentID != nil {
-		var wg sync.WaitGroup
+		s.mu.Lock()
+		defer s.mu.Unlock()
+
+		parentID := *newComment.CommentID
 		for _, post := range s.posts {
-			wg.Add(1)
-			go func(p *model.Post) {
-				defer wg.Done()
-				insertComment(p.Comments, comm, *newComment.CommentID)
-			}(post)
+			if insertComment(post.Comments, comm, parentID) {
+				return comm, nil
+			}
 		}
-		wg.Wait()
+		return nil, ErrNotFound
 	} else {
 		return nil, ErrBadRequest
 	}
@@ -99,18 +113,18 @@ func (s *inmemStorage) CreateComment(ctx context.Context, newComment model.NewCo
 	return comm, nil
 }
 
-func insertComment(comments []*model.Comment, newComment *model.Comment, parentId string) {
-	if comments == nil {
-		return
-	}
-
+func insertComment(comments []*model.Comment, newComment *model.Comment, parentId string) bool {
 	for _, comment := range comments {
 		if comment.ID.String() == parentId {
 			newComment.PostID = comment.PostID
 			comment.Comments = append(comment.Comments, newComment)
-			return
-		} else {
-			go insertComment(comment.Comments, newComment, parentId)
+			return true
+		}
+
+		if insertComment(comment.Comments, newComment, parentId) {
+			return true
 		}
 	}
+
+	return false
 }
